@@ -172,18 +172,22 @@ function read_tagged_literal(io::IO)
   c == '{' && return read_set(io)
   tag = symbol(buffer_chars(UInt8[c], io))
   value = readEDN(io)
-  tag == :inst && return inst(value)
-  tag == :uuid && return uuid(value)
-  eval(Main, tag)(value...)
+  if haskey(handlers, tag)
+    handlers[tag](value)
+  else
+    eval(Main, tag)(value...)
+  end
 end
 
 read_set(io) = Set(readuntil(ClosingBrace('}'), io))
 
-uuid(str) = Base.Random.UUID(parse(UInt128, "0x" * replace(str, '-', "")))
-
 const date_format = Dates.DateFormat("yyyy-mm-dd")
 const datetime_format = Dates.DateFormat("yyyy-mm-ddTHH:MM:SS.sss")
-inst(s::AbstractString) = length(s) == 10 ? Date(s, date_format) : DateTime(s, datetime_format)
+
+const handlers = Dict(
+  :uuid => s -> Base.Random.UUID(parse(UInt128, "0x" * replace(s, '-', ""))),
+  :inst => s -> length(s) == 10 ? Date(s, date_format) : DateTime(s, datetime_format)
+)
 
 test("tagged literals") do
   @test readEDN("#uuid \"00000000-0000-0000-0000-000000000001\"") == Base.Random.UUID(UInt128(1))
