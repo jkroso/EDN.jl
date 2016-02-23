@@ -22,7 +22,13 @@ writeEDN(io::IO, ::Void) = write(io, b"nil")
 writeEDN(io::IO, str::AbstractString) = Base.print_quoted(io, str)
 writeEDN(io::IO, b::Bool) = write(io, b ? b"true" : b"false")
 writeEDN(io::IO, sym::Symbol) = write(io, sym)
-writeEDN(io::IO, n::Union{Integer,AbstractFloat}) = print_shortest(io, n)
+@eval typealias Float $(symbol(:Float, WORD_SIZE))
+writeEDN(io::IO, n::Union{Int,Float}) = print_shortest(io, n)
+writeEDN(io::IO, n::Union{Integer,AbstractFloat}) = begin
+  print(io, '#', typeof(n), " [")
+  print_shortest(io, n)
+  write(io, ']')
+end
 
 const special_chars = Dict('\n' => b"newline",
                            '\r' => b"return",
@@ -34,6 +40,7 @@ test("primitives") do
   @test writeEDN(nothing) == "nil"
   @test writeEDN(:a) == "a"
   @test writeEDN(1) == "1"
+  @test writeEDN(Int8(1)) == "#Int8 [1]"
   @test writeEDN(1.1) == "1.1"
   @test writeEDN(-1.1) == "-1.1"
   @test writeEDN(10000) == "1e4"
@@ -122,8 +129,17 @@ end
 @test writeEDN(Base.Random.UUID(UInt128(1))) == "#uuid \"00000000-0000-0000-0000-000000000001\""
 
 writeEDN{T}(io::IO, value::T) = begin
-  print(io, '#', T.name, ' ')
+  print(io, '#', T, ' ')
   writeEDN(io, map(f -> getfield(value, f), fieldnames(T)))
 end
 
-@test writeEDN(1//2) == "#Rational [1 2]"
+# Nullable needs a special case since it has a strange constructor
+writeEDN(io::IO, value::Nullable) = begin
+  print(io, '#', typeof(value), " [")
+  isnull(value) || writeEDN(io, get(value))
+  write(io, ']')
+end
+
+@test writeEDN(1//2) == "#Rational{Int64} [1 2]"
+@test writeEDN(Nullable{Int32}(Int32(1))) == "#Nullable{Int32} [#Int32 [1]]"
+@test writeEDN(Nullable{Int32}()) == "#Nullable{Int32} []"
