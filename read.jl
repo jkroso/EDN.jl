@@ -124,7 +124,7 @@ test("strings") do
   @test readEDN("\"\\u2208\"") == "∈"
 end
 
-function readuntil(brace::ClosingBrace, io::IO)
+function readto(brace::ClosingBrace, io::IO)
   buffer = Any[]
   while true
     value = read_next(io)
@@ -133,7 +133,7 @@ function readuntil(brace::ClosingBrace, io::IO)
   end
 end
 
-read_list(io::IO) = tuple(readuntil(ClosingBrace(')'), io)...)
+read_list(io::IO) = tuple(readto(ClosingBrace(')'), io)...)
 
 test("List") do
   @test readEDN("()") == ()
@@ -142,7 +142,7 @@ test("List") do
   @test readEDN("( 1, 2 )") == (1,2)
 end
 
-read_vector(io::IO) = readuntil(ClosingBrace(']'), io)
+read_vector(io::IO) = readto(ClosingBrace(']'), io)
 
 test("Vector") do
   @test readEDN("[]") == []
@@ -170,16 +170,16 @@ end
 function read_tagged_literal(io::IO)
   c = read(io, UInt8)
   c == '{' && return read_set(io)
-  tag = symbol(buffer_chars(UInt8[c], io))
+  tag = string(Char(c), rstrip(bytestring(readuntil(io, UInt8(' ')))))
   value = readEDN(io)
-  if haskey(handlers, tag)
-    handlers[tag](value)
+  if haskey(handlers, symbol(tag))
+    handlers[symbol(tag)](value)
   else
-    eval(Main, tag)(value...)
+    eval(Main, parse(tag))(value...)
   end
 end
 
-read_set(io) = Set(readuntil(ClosingBrace('}'), io))
+read_set(io) = Set(readto(ClosingBrace('}'), io))
 
 const date_format = Dates.DateFormat("yyyy-mm-dd")
 const datetime_format = Dates.DateFormat("yyyy-mm-ddTHH:MM:SS.sss")
@@ -196,4 +196,5 @@ test("tagged literals") do
   @test readEDN("#{}") == Set()
   @test readEDN("#{1 2}") == Set([1,2])
   @test readEDN("#Rational [1 2]") == 1//2
+  @test readEDN("#Nullable{Int64} [1]") |> get == 1
 end
