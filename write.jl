@@ -128,9 +128,15 @@ end
 
 @test writeEDN(Base.Random.UUID(UInt128(1))) == "#uuid \"00000000-0000-0000-0000-000000000001\""
 
-writeEDN{T}(io::IO, value::T) = begin
-  print(io, '#', T, ' ')
-  writeEDN(io, map(f -> getfield(value, f), fieldnames(T)))
+"""
+Maps to the tagged literal tag that should be used for a given type.
+By default it will include the module the type was defined in
+"""
+edn_tag(value::Any) = string(typeof(value))
+
+writeEDN(io::IO, value::Any) = begin
+  print(io, '#', edn_tag(value), ' ')
+  writeEDN(io, map(f -> getfield(value, f), fieldnames(value)))
 end
 
 # Nullable needs a special case since it has a strange constructor
