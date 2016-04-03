@@ -35,9 +35,9 @@ writeEDN(io::IO, sym::Symbol, ::Tuple) = write(io, sym)
 @eval typealias Float $(symbol(:Float, WORD_SIZE))
 writeEDN(io::IO, n::Union{Int,Float}, ::Tuple) = print_shortest(io, n)
 writeEDN(io::IO, n::Union{Integer,AbstractFloat}, ::Tuple) = begin
-  print(io, '#', typeof(n), " [")
+  print(io, '#', typeof(n), " (")
   print_shortest(io, n)
-  write(io, ']')
+  write(io, ')')
 end
 
 const special_chars = Dict('\n' => b"newline",
@@ -126,15 +126,26 @@ By default it will include the module the type was defined in
 edn_tag(value::Any) = string(typeof(value))
 
 writeEDN(io::IO, value::Any, state::Tuple) = begin
+  path, cache = state
   check_cache(state, value, io) do
     print(io, '#', edn_tag(value), ' ')
-    writeEDN(io, map(f -> getfield(value, f), fieldnames(value)), state)
+    write(io, '(')
+    first = true
+    for field in fieldnames(value)
+      if first
+        first = false
+      else
+        write(io, ' ')
+      end
+      writeEDN(io, getfield(value, field), (vcat(path, field), cache))
+    end
+    write(io, ')')
   end
 end
 
 # Nullable needs a special case since it has a strange constructor
 writeEDN(io::IO, value::Nullable, ::Tuple) = begin
-  print(io, '#', typeof(value), " [")
+  print(io, '#', typeof(value), " (")
   isnull(value) || writeEDN(io, get(value))
-  write(io, ']')
+  write(io, ')')
 end

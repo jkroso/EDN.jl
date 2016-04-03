@@ -6,7 +6,7 @@ test("primitives") do
   @test writeEDN(nothing) == "nil"
   @test writeEDN(:a) == "a"
   @test writeEDN(1) == "1"
-  @test writeEDN(Int8(1)) == "#Int8 [1]"
+  @test writeEDN(Int8(1)) == "#Int8 (1)"
   @test writeEDN(1.1) == "1.1"
   @test writeEDN(-1.1) == "-1.1"
   @test writeEDN(10000) == "1e4"
@@ -42,16 +42,16 @@ end
 
 @test writeEDN(Base.Random.UUID(UInt128(1))) == "#uuid \"00000000-0000-0000-0000-000000000001\""
 
-@test writeEDN(1//2) == "#Rational{Int64} [1 2]"
-@test writeEDN(Nullable{Int32}(Int32(1))) == "#Nullable{Int32} [#Int32 [1]]"
-@test writeEDN(Nullable{Int32}()) == "#Nullable{Int32} []"
+@test writeEDN(1//2) == "#Rational{Int64} (1 2)"
+@test writeEDN(Nullable{Int32}(Int32(1))) == "#Nullable{Int32} (#Int32 (1))"
+@test writeEDN(Nullable{Int32}()) == "#Nullable{Int32} ()"
 
 type A val end
 edn_tag(::A) = "A"
 
 test("composite types") do
   a = A(1)
-  b = A(a)
-  println(writeEDN([a,b]))
-  @test writeEDN([a,b]) == "[#A [1] #A [#ref [1]]]"
+  c = A(a)
+  b = A(c)
+  @test writeEDN([a,b,c]) == "[#A (1) #A (#A (#ref [1])) #ref [2 val]]"
 end
