@@ -1,5 +1,7 @@
 @require "github.com/BioJulia/BufferedStreams.jl" peek BufferedInputStream
 
+Base.parse(::MIME"application/edn", io::Any) = readEDN(io)
+
 """
 Parse the next [edn](https://github.com/edn-format/edn) value from an `IO` stream
 
@@ -14,8 +16,6 @@ readEDN("{a 1}") # => Dict(:a=>1)
 ```
 """
 function readEDN end
-
-Base.parse(::MIME"application/edn", io::Any) = readEDN(io)
 
 readEDN(edn::Vector{UInt8}) = readEDN(BufferedInputStream(edn))
 readEDN(edn::AbstractString) = readEDN(convert(Vector{UInt8}, edn))
@@ -81,20 +81,6 @@ function read_char(io::IO)
   return Char(buffer[1])
 end
 
-test("primitives") do
-  @test readEDN("false") == false
-  @test readEDN("true") == true
-  @test readEDN("nil") == nothing
-  @test readEDN("1") == 1
-  @test readEDN("1.1") == 1.1
-  @test readEDN("-1.1e3") == -1.1e3
-  @test readEDN("\\newline") == '\n'
-  @test readEDN("\\c") == '\c'
-  @test readEDN("c") == symbol("c")
-  @test readEDN(":c") == symbol(":c")
-  @test readEDN(":c/b") == symbol(":c/b")
-end
-
 function read_string(io::IO)
   buf = IOBuffer()
   while true
@@ -118,12 +104,6 @@ function read_string(io::IO)
   end
 end
 
-test("strings") do
-  @test readEDN("\"hi\"") == "hi"
-  @test readEDN("\"\\n\"") == "\n"
-  @test readEDN("\"\\u2208\"") == "∈"
-end
-
 function readto(brace::ClosingBrace, io::IO)
   buffer = Any[]
   while true
@@ -134,22 +114,7 @@ function readto(brace::ClosingBrace, io::IO)
 end
 
 read_list(io::IO) = tuple(readto(ClosingBrace(')'), io)...)
-
-test("List") do
-  @test readEDN("()") == ()
-  @test readEDN("(1)") == (1,)
-  @test readEDN("(1 2)") == (1,2)
-  @test readEDN("( 1, 2 )") == (1,2)
-end
-
 read_vector(io::IO) = readto(ClosingBrace(']'), io)
-
-test("Vector") do
-  @test readEDN("[]") == []
-  @test readEDN("[1]") == Any[1]
-  @test readEDN("[1,2]") == Any[1,2]
-  @test readEDN("[ 1, 2 ]") == Any[1,2]
-end
 
 function read_dict(io::IO)
   dict = Dict{Any,Any}()
@@ -158,13 +123,6 @@ function read_dict(io::IO)
     key == ClosingBrace('}') && return dict
     dict[key] = read_next(io)
   end
-end
-
-test("Dict") do
-  @test readEDN("{}") == Dict()
-  @test readEDN("{a 1}") == Dict(:a=>1)
-  @test readEDN("{ a 1 }") == Dict(:a=>1)
-  @test readEDN("{a 1 b 2}") == Dict(:a=>1,:b=>2)
 end
 
 function read_tagged_literal(io::IO)
@@ -188,13 +146,3 @@ const handlers = Dict(
   :uuid => s -> Base.Random.UUID(parse(UInt128, "0x" * replace(s, '-', ""))),
   :inst => s -> length(s) == 10 ? Date(s, date_format) : DateTime(s, datetime_format)
 )
-
-test("tagged literals") do
-  @test readEDN("#uuid \"00000000-0000-0000-0000-000000000001\"") == Base.Random.UUID(UInt128(1))
-  @test readEDN("#inst \"1985-04-12T23:20:50.52\"") == DateTime(1985,4,12,23,20,50,520)
-  @test readEDN("#inst \"1985-04-12\"") == Date(1985,4,12)
-  @test readEDN("#{}") == Set()
-  @test readEDN("#{1 2}") == Set([1,2])
-  @test readEDN("#Rational [1 2]") == 1//2
-  @test readEDN("#Nullable{Int64} [1]") |> get == 1
-end
