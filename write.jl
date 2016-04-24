@@ -1,6 +1,12 @@
 Base.writemime(io::IO, ::MIME"application/edn", value::Any) = writeEDN(io, value)
 
 """
+Maps to the tagged literal tag that should be used for a given type.
+By default it will include the module the type was defined in
+"""
+edn_tag(value::Any) = string(typeof(value))
+
+"""
 Writes the [edn](https://github.com/edn-format/edn) representation of a
 value to an `IO` stream.
 
@@ -109,12 +115,6 @@ writeEDN(io::IO, id::Base.Random.UUID, ::State) = begin
   print(io, id)
   write(io, '"')
 end
-
-"""
-Maps to the tagged literal tag that should be used for a given type.
-By default it will include the module the type was defined in
-"""
-edn_tag(value::Any) = string(typeof(value))
 
 writeEDN(io::IO, value::Any, s::State) =
   check_cache(s, value, io) do
