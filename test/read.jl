@@ -1,4 +1,5 @@
 @require "../read" readEDN
+# include("../read.jl")
 
 test("primitives") do
   @test readEDN("false") == false
@@ -49,9 +50,10 @@ test("tagged literals") do
   @test readEDN("#{1 2}") == Set([1,2])
   @test readEDN("#Rational [1 2]") == 1//2
   @test readEDN("#Nullable{Int64} [1]") |> get == 1
+  @test isa(readEDN("#Base.Test.Success (1 2 true)"), Base.Test.Success)
 end
 
-test("#ref") do
-  o = readEDN("{a {b {a #ref [a]}} b #ref [a b]}")
-  @test o[:a] === o[:b][:a]
+test("# references") do
+  o = readEDN("{self # 1}")
+  @test o[:self] === o
 end

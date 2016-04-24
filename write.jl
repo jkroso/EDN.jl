@@ -26,15 +26,20 @@ function writeEDN end
 # to string
 writeEDN(value::Any) = sprint(writeEDN, value)
 # create cache
-writeEDN(io::IO, v::Any) = writeEDN(io, v, ([], Dict{Integer,Vector{Any}}()))
+writeEDN(io::IO, v::Any) = writeEDN(io, v, State{UInt64}(Dict(), 0))
 
-writeEDN(io::IO, ::Void, ::Tuple) = write(io, b"nil")
-writeEDN(io::IO, str::AbstractString, ::Tuple) = Base.print_quoted(io, str)
-writeEDN(io::IO, b::Bool, ::Tuple) = write(io, b ? b"true" : b"false")
-writeEDN(io::IO, sym::Symbol, ::Tuple) = write(io, sym)
+type State{Max<:Real}
+  table::Dict{Max,Any}
+  count::Max
+end
+
+writeEDN(io::IO, ::Void, ::State) = write(io, b"nil")
+writeEDN(io::IO, str::AbstractString, ::State) = Base.print_quoted(io, str)
+writeEDN(io::IO, b::Bool, ::State) = write(io, b ? b"true" : b"false")
+writeEDN(io::IO, sym::Symbol, ::State) = write(io, sym)
 @eval typealias Float $(symbol(:Float, WORD_SIZE))
-writeEDN(io::IO, n::Union{Int,Float}, ::Tuple) = print_shortest(io, n)
-writeEDN(io::IO, n::Union{Integer,AbstractFloat}, ::Tuple) = begin
+writeEDN(io::IO, n::Union{Int,Float}, ::State) = print_shortest(io, n)
+writeEDN(io::IO, n::Union{Integer,AbstractFloat}, ::State) = begin
   print(io, '#', typeof(n), " (")
   print_shortest(io, n)
   write(io, ')')
@@ -44,22 +49,19 @@ const special_chars = Dict('\n' => b"newline",
                            '\r' => b"return",
                            '\t' => b"tab",
                            ' '  => b"space")
-writeEDN(io::IO, c::Char, ::Tuple) = write(io, '\\', get(special_chars, c, c))
+writeEDN(io::IO, c::Char, ::State) = write(io, '\\', get(special_chars, c, c))
 
-check_cache(f, state, object, io) = begin
-  path, cache = state
+check_cache(f::Function, s::State, object, io) = begin
   id = entity_id(object)
-  if haskey(cache, id)
-    write(io, "#ref ")
-    writeEDN(io, cache[id])
+  if haskey(s.table, id)
+    print(io, "# ", s.table[id])
   else
-    cache[id] = path
+    s.table[id] = s.count += 1
     f()
   end
 end
 
-writeEDN(io::IO, dict::Dict, state::Tuple) = begin
-  path, cache = state
+writeEDN(io::IO, dict::Dict, state::State) = begin
   check_cache(state, dict, io) do
     write(io, '{')
     isfirst = true
@@ -69,51 +71,48 @@ writeEDN(io::IO, dict::Dict, state::Tuple) = begin
       else
         write(io, ' ')
       end
-      substate = (vcat(path, key), cache)
-      writeEDN(io, key, substate)
+      writeEDN(io, key, state)
       write(io, ' ')
-      writeEDN(io, value, substate)
+      writeEDN(io, value, state)
     end
     write(io, '}')
   end
 end
 
-writespaced(io::IO, itr::Any, state::Tuple) = begin
-  path, cache = state
+writespaced(io::IO, itr::Any, state::State) =
   for (i, value) in enumerate(itr)
     i > 1 && write(io, ' ')
-    writeEDN(io, value, (vcat(path, i), cache))
+    writeEDN(io, value, state)
   end
-end
 
-writeEDN(io::IO, set::Set, state::Tuple) =
+writeEDN(io::IO, set::Set, state::State) =
   check_cache(state, set, io) do
     write(io, b"#{")
     writespaced(io, set, state)
     write(io, '}')
   end
 
-writeEDN(io::IO, vector::Vector, state::Tuple) =
+writeEDN(io::IO, vector::Vector, state::State) =
   check_cache(state, vector, io) do
     write(io, '[')
     writespaced(io, vector, state)
     write(io, ']')
   end
 
-writeEDN(io::IO, list::Tuple, state::Tuple) =
+writeEDN(io::IO, list::Tuple, state::State) =
   check_cache(state, list, io) do
     write(io, '(')
     writespaced(io, list, state)
     write(io, ')')
   end
 
-writeEDN(io::IO, date::Dates.TimeType, ::Tuple) = begin
+writeEDN(io::IO, date::Dates.TimeType, ::State) = begin
   write(io, b"#inst \"")
   print(io, date)
   write(io, '"')
 end
 
-writeEDN(io::IO, id::Base.Random.UUID, ::Tuple) = begin
+writeEDN(io::IO, id::Base.Random.UUID, ::State) = begin
   write(io, b"#uuid \"")
   print(io, id)
   write(io, '"')
@@ -125,9 +124,8 @@ By default it will include the module the type was defined in
 """
 edn_tag(value::Any) = string(typeof(value))
 
-writeEDN(io::IO, value::Any, state::Tuple) = begin
-  path, cache = state
-  check_cache(state, value, io) do
+writeEDN(io::IO, value::Any, s::State) =
+  check_cache(s, value, io) do
     print(io, '#', edn_tag(value), ' ')
     write(io, '(')
     first = true
@@ -137,14 +135,13 @@ writeEDN(io::IO, value::Any, state::Tuple) = begin
       else
         write(io, ' ')
       end
-      writeEDN(io, getfield(value, field), (vcat(path, field), cache))
+      writeEDN(io, getfield(value, field), s)
     end
     write(io, ')')
   end
-end
 
 # Nullable needs a special case since it has a strange constructor
-writeEDN(io::IO, value::Nullable, ::Tuple) = begin
+writeEDN(io::IO, value::Nullable, ::State) = begin
   print(io, '#', typeof(value), " (")
   isnull(value) || writeEDN(io, get(value))
   write(io, ')')
