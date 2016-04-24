@@ -1,13 +1,6 @@
 Base.writemime(io::IO, ::MIME"application/edn", value::Any) = writeEDN(io, value)
 
 """
-Produces a globably unique integer for an entity; similar to object_id
-but in this case two objects can return the same number without being
-the same object in memory
-"""
-function entity_id end
-
-"""
 Writes the [edn](https://github.com/edn-format/edn) representation of a
 value to an `IO` stream.
 
@@ -26,11 +19,11 @@ function writeEDN end
 # to string
 writeEDN(value::Any) = sprint(writeEDN, value)
 # create cache
-writeEDN(io::IO, v::Any) = writeEDN(io, v, State{UInt64}(Dict(), 0))
+writeEDN(io::IO, v::Any) = writeEDN(io, v, State(ObjectIdDict(), UInt64(0)))
 
-type State{Max<:Real}
-  table::Dict{Max,Any}
-  count::Max
+type State
+  table::ObjectIdDict
+  count::Real
 end
 
 writeEDN(io::IO, ::Void, ::State) = write(io, b"nil")
@@ -52,11 +45,10 @@ const special_chars = Dict('\n' => b"newline",
 writeEDN(io::IO, c::Char, ::State) = write(io, '\\', get(special_chars, c, c))
 
 check_cache(f::Function, s::State, object, io) = begin
-  id = entity_id(object)
-  if haskey(s.table, id)
-    print(io, "# ", s.table[id])
+  if haskey(s.table, object)
+    print(io, "# ", s.table[object])
   else
-    s.table[id] = s.count += 1
+    s.table[object] = s.count += 1
     f()
   end
 end

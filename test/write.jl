@@ -1,6 +1,4 @@
-@require "../write" writeEDN entity_id edn_tag
-
-entity_id(x) = object_id(x)
+@require "../write" writeEDN edn_tag
 
 test("primitives") do
   @test writeEDN(nothing) == "nil"
