@@ -19,7 +19,8 @@ function readEDN end
 
 readEDN(edn::Vector{UInt8}) = readEDN(BufferedInputStream(edn))
 readEDN(edn::AbstractString) = readEDN(convert(Vector{UInt8}, edn))
-readEDN(edn::IO) = begin
+readEDN(edn::IO) = readEDN(BufferedInputStream(edn))
+readEDN(edn::BufferedInputStream) = begin
   value = read_next(edn, Vector{Any}())
   @assert !isa(value, ClosingBrace)
   value
