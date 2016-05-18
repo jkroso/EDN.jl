@@ -19,9 +19,6 @@ test("Dict") do
   @test writeEDN(Dict()) == "{}"
   @test writeEDN(Dict(:a=>1)) == "{a 1}"
   @test writeEDN(Dict(:a=>1,true=>2)) == "{a 1 true 2}"
-  a = Dict()
-  a[:self] = a
-  @test writeEDN(a) == "{self # 1}"
 end
 
 @test writeEDN(Set()) == "#{}"
@@ -43,18 +40,9 @@ end
 @test writeEDN(Nullable{Int32}(Int32(1))) == "#Nullable{Int32} (#Int32 (1))"
 @test writeEDN(Nullable{Int32}()) == "#Nullable{Int32} ()"
 
-type A val end
-type B
-  self
-  B() = (b=new(); b.self=b)
-end
+type A a end
 edn_tag(::A) = "A"
-edn_tag(::B) = "B"
 
 test("composite types") do
-  @test writeEDN(B()) == "#B (# 1)"
-  a = A(1)
-  c = A(a)
-  b = A(c)
-  @test writeEDN([a,b,c]) == "[#A (1) #A (#A (# 2)) # 4]"
+  @test writeEDN(A(1)) == "#A (1)"
 end

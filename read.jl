@@ -21,7 +21,7 @@ readEDN(edn::Vector{UInt8}) = readEDN(BufferedInputStream(edn))
 readEDN(edn::AbstractString) = readEDN(convert(Vector{UInt8}, edn))
 readEDN(edn::IO) = readEDN(BufferedInputStream(edn))
 readEDN(edn::BufferedInputStream) = begin
-  value = read_next(edn, Vector{Any}())
+  value = read_next(edn)
   @assert !isa(value, ClosingBrace)
   value
 end
@@ -32,7 +32,7 @@ const closing_braces = b"]})"
 
 immutable ClosingBrace value::Char end
 
-function read_next(io::IO, cache::Vector)
+function read_next(io::IO)
   local c
   while true
     c = read(io, UInt8)
@@ -41,10 +41,10 @@ function read_next(io::IO, cache::Vector)
     break
   end
   if     c == '"'  read_string(io)
-  elseif c == '{'  read_dict(io, cache)
-  elseif c == '['  read_vector(io, cache)
-  elseif c == '('  read_list(io, cache)
-  elseif c == '#'  read_tagged_literal(io, cache)
+  elseif c == '{'  read_dict(io)
+  elseif c == '['  read_vector(io)
+  elseif c == '('  read_list(io)
+  elseif c == '#'  read_tagged_literal(io)
   elseif c == '\\' read_char(io)
   else             read_symbol(c, io) end
 end
@@ -105,55 +105,50 @@ function read_string(io::IO)
   end
 end
 
-function readto(brace::ClosingBrace, io::IO, cache::Vector{Any})
+function readto(brace::ClosingBrace, io::IO)
   buffer = Vector{Any}()
   while true
-    value = read_next(io, cache)
+    value = read_next(io)
     value == brace && return buffer
     push!(buffer, value)
   end
 end
 
-read_list(io::IO, cache::Vector{Any}) = tuple(readto(ClosingBrace(')'), io, cache)...)
-read_vector(io::IO, cache::Vector{Any}) = readto(ClosingBrace(']'), io, cache)
+read_list(io::IO) = tuple(readto(ClosingBrace(')'), io)...)
+read_vector(io::IO) = readto(ClosingBrace(']'), io)
 
-function read_dict(io::IO, cache::Vector{Any})
+function read_dict(io::IO)
   dict = Dict{Any,Any}()
-  push!(cache, dict)
   while true
-    key = read_next(io, cache)
+    key = read_next(io)
     key == ClosingBrace('}') && return dict
-    dict[key] = read_next(io, cache)
+    dict[key] = read_next(io)
   end
 end
 
-read_ref(io::IO, cache::Vector{Any}) = cache[read_next(io, cache)]
-
-function read_tagged_literal(io::IO, cache::Vector{Any})
+function read_tagged_literal(io::IO)
   c = read(io, UInt8)
-  c == '{' && return read_set(io, cache)
-  c == ' ' && return read_ref(io, cache)
+  c == '{' && return read_set(io)
   tag = string(Char(c), rstrip(bytestring(readuntil(io, UInt8(' ')))))
   if haskey(handlers, tag)
-    handlers[tag](read_next(io, cache))
+    handlers[tag](read_next(io))
   else
     T = eval(Main, parse(tag))
     if T.mutable
       x = ccall(:jl_new_struct_uninit, Any, (Any,), T)
-      push!(cache, x)
       read(io, UInt8) # (
       for f in fieldnames(T)
-        setfield!(x, f, read_next(io, cache))
+        setfield!(x, f, read_next(io))
       end
       read(io, UInt8) # )
       x
     else
-      T(read_next(io, cache)...)
+      T(read_next(io)...)
     end
   end
 end
 
-read_set(io::IO, cache::Vector{Any}) = Set(readto(ClosingBrace('}'), io, cache))
+read_set(io::IO) = Set(readto(ClosingBrace('}'), io))
 
 const date_format = Dates.DateFormat("yyyy-mm-dd")
 const datetime_format = Dates.DateFormat("yyyy-mm-ddTHH:MM:SS.sss")
