@@ -1,6 +1,8 @@
-@require "../read" readEDN
+@use "github.com/jkroso/Rutherford.jl/test" testset @test
+@use Dates: DateTime, Date
+@use "../read" readEDN
 
-test("primitives") do
+testset("primitives") do
   @test readEDN("false") == false
   @test readEDN("true") == true
   @test readEDN("nil") == nothing
@@ -8,46 +10,46 @@ test("primitives") do
   @test readEDN("1.1") == 1.1
   @test readEDN("-1.1e3") == -1.1e3
   @test readEDN("\\newline") == '\n'
-  @test readEDN("\\c") == '\c'
-  @test readEDN("c") == symbol("c")
-  @test readEDN(":c") == symbol(":c")
-  @test readEDN(":c/b") == symbol(":c/b")
+  @test readEDN("\\c") == 'c'
+  @test readEDN("c") == Symbol("c")
+  @test readEDN(":c") == Symbol(":c")
+  @test readEDN(":c/b") == Symbol(":c/b")
 end
 
-test("strings") do
+testset("strings") do
   @test readEDN("\"hi\"") == "hi"
   @test readEDN("\"\\n\"") == "\n"
   @test readEDN("\"\\u2208\"") == "∈"
 end
 
-test("List") do
+testset("List") do
   @test readEDN("()") == ()
   @test readEDN("(1)") == (1,)
   @test readEDN("(1 2)") == (1,2)
   @test readEDN("( 1, 2 )") == (1,2)
 end
 
-test("Vector") do
+testset("Vector") do
   @test readEDN("[]") == []
   @test readEDN("[1]") == Any[1]
   @test readEDN("[1,2]") == Any[1,2]
   @test readEDN("[ 1, 2 ]") == Any[1,2]
 end
 
-test("Dict") do
+testset("Dict") do
   @test readEDN("{}") == Dict()
   @test readEDN("{a 1}") == Dict(:a=>1)
   @test readEDN("{ a 1 }") == Dict(:a=>1)
   @test readEDN("{a 1 b 2}") == Dict(:a=>1,:b=>2)
 end
 
-test("tagged literals") do
-  @test readEDN("#uuid \"00000000-0000-0000-0000-000000000001\"") == Base.Random.UUID(UInt128(1))
+struct A; a;b;c end
+testset("tagged literals") do
+  @test readEDN("#uuid \"00000000-0000-0000-0000-000000000001\"") == Base.UUID(UInt128(1))
   @test readEDN("#inst \"1985-04-12T23:20:50.52\"") == DateTime(1985,4,12,23,20,50,520)
   @test readEDN("#inst \"1985-04-12\"") == Date(1985,4,12)
   @test readEDN("#{}") == Set()
   @test readEDN("#{1 2}") == Set([1,2])
   @test readEDN("#Rational [1 2]") == 1//2
-  @test readEDN("#Nullable{Int64} [1]") |> get == 1
-  @test isa(readEDN("#Base.Test.Success (1 2 true)"), Base.Test.Success)
+  @test isa(readEDN("#A (1 2 3)", @__MODULE__), A)
 end
