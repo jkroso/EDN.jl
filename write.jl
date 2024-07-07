@@ -44,29 +44,18 @@ writeEDN(io::IO, c::Char) = write(io, '\\', get(special_chars, c, c))
 
 writeEDN(io::IO, dict::Dict) = begin
   write(io, '{')
-  first = true
-  for (key, value) in dict
-    if first
-      first = false
-    else
-      write(io, ' ')
-    end
-    writeEDN(io, key)
-    write(io, ' ')
-    writeEDN(io, value)
-  end
+  mapjoin(writespaced, io, dict)
   write(io, '}')
 end
 
-writespaced(io::IO, itr::Any) = begin
+writespaced(io::IO, itr::Any) = mapjoin(writeEDN, io, itr)
+writespaced(io::IO, (k,v)::Pair) = (writeEDN(io, k); write(io, ' '); writeEDN(io, v))
+
+mapjoin(fn, io, itr) = begin
   first = true
   for value in itr
-    if first
-      first = false
-    else
-      write(io, ' ')
-    end
-    writeEDN(io, value)
+    first ? (first = false) : write(io, ' ')
+    fn(io, value)
   end
 end
 
