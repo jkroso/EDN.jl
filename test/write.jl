@@ -45,3 +45,5 @@ struct A a end
 testset("composite types") do
   @test writeEDN(A(1)) == "#A (1)"
 end
+
+@test writeEDN(Rational{Int64}) == "#DataType \"Rational{Int64}\""

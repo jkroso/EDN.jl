@@ -52,4 +52,5 @@ testset("tagged literals") do
   @test readEDN("#{1 2}") == Set([1,2])
   @test readEDN("#Rational [1 2]") == 1//2
   @test isa(readEDN("#A (1 2 3)", @__MODULE__), A)
+  @test readEDN("#DataType \"Rational{Int64}\"") == Rational{Int64}
 end

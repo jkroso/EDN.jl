@@ -95,3 +95,5 @@ writeEDN(io::IO, value::T) where T = begin
   writespaced(io, (getfield(value, field) for field in fieldnames(T)))
   write(io, ')')
 end
+
+writeEDN(io::IO, T::DataType) = write(io, "#DataType \"$T\"")
