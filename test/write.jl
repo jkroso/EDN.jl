@@ -41,9 +41,17 @@ end
 @test writeEDN(1//2) == "#Rational{Int64} (1 2)"
 
 struct A a end
+struct B{t} a end
+struct C{t,d} a end
 
 testset("composite types") do
   @test writeEDN(A(1)) == "#A (1)"
+  @test writeEDN(B{Int64}(1)) == "#B{Int64} (1)"
+  @test writeEDN(B{:a}(1)) == "#B{:a} (1)"
 end
 
-@test writeEDN(Rational{Int64}) == "#DataType \"Rational{Int64}\""
+testset("DataTypes") do
+  @test writeEDN(Rational{Int64}) == "#Type \"Rational{Int64}\""
+  @test writeEDN(B{:a}) == "#Type \"B{:a}\""
+  @test writeEDN(C{:a, 1}) == "#Type \"C{:a,1}\""
+end

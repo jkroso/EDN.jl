@@ -8,9 +8,11 @@ By default it will include the module the type was defined in
 """
 tag(value::T) where T = tag(T)
 tag(value::UnionAll) = tag(value.body)
-tag(T::DataType) = begin
+tag(T::DataType) = src(T)
+
+src(T::DataType) = begin
   length(T.parameters) == 0 && return String(T.name.name)
-  "$(T.name.name){$(join(map(string, T.parameters), ','))}"
+  "$(T.name.name){$(join(map(repr, T.parameters), ','))}"
 end
 
 """
@@ -96,4 +98,4 @@ writeEDN(io::IO, value::T) where T = begin
   write(io, ')')
 end
 
-writeEDN(io::IO, T::DataType) = write(io, "#DataType \"$T\"")
+writeEDN(io::IO, T::DataType) = write(io, "#Type \"$(src(T))\"")

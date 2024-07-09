@@ -54,3 +54,12 @@ testset("tagged literals") do
   @test isa(readEDN("#A (1 2 3)", @__MODULE__), A)
   @test readEDN("#DataType \"Rational{Int64}\"") == Rational{Int64}
 end
+
+struct B{t} a end
+struct C{t,d} a end
+
+testset("DataTypes") do
+  @test readEDN("#Type \"Rational{Int64}\"") == Rational{Int64}
+  @test readEDN("#Type \"B{:a}\"", @__MODULE__) == B{:a}
+  @test readEDN("#Type \"C{:a,1}\"", @__MODULE__) == C{:a,1}
+end
