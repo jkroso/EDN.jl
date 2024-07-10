@@ -63,3 +63,10 @@ testset("DataTypes") do
   @test readEDN("#Type \"B{:a}\"", @__MODULE__) == B{:a}
   @test readEDN("#Type \"C{:a,1}\"", @__MODULE__) == C{:a,1}
 end
+
+@enum Fruit apple=1 orange=2 kiwi=3
+
+testset("Enum") do
+  @test readEDN("#Fruit (1)", @__MODULE__) == apple
+  @test readEDN("#Fruit (2)", @__MODULE__) == orange
+end

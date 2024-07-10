@@ -99,3 +99,4 @@ writeEDN(io::IO, value::T) where T = begin
 end
 
 writeEDN(io::IO, T::DataType) = write(io, "#Type \"$(src(T))\"")
+writeEDN(io::IO, e::Enum) = write(io, "#$(tag(typeof(e))) ($(Int(e)))")

@@ -55,3 +55,10 @@ testset("DataTypes") do
   @test writeEDN(B{:a}) == "#Type \"B{:a}\""
   @test writeEDN(C{:a, 1}) == "#Type \"C{:a,1}\""
 end
+
+@enum Fruit apple=1 orange=2 kiwi=3
+
+testset("Enum") do
+  @test writeEDN(apple) == "#Fruit (1)"
+  @test writeEDN(orange) == "#Fruit (2)"
+end
