@@ -111,7 +111,7 @@ readto(brace::ClosingBrace, io::IO) = begin
   buffer = Vector{Any}()
   while true
     value = read_next(io)
-    value == brace && return buffer
+    value === brace && return buffer
     push!(buffer, value)
   end
 end
@@ -123,7 +123,7 @@ read_dict(io::IO) = begin
   dict = Dict{Any,Any}()
   while true
     key = read_next(io)
-    key == ClosingBrace('}') && return dict
+    key === ClosingBrace('}') && return dict
     dict[key] = read_next(io)
   end
 end
